@@ -6,7 +6,7 @@ import pandas as pd
 # Global variables
 PARTICIPATION_FILE = "20250809-costa_rica_cribbage_participation.csv"
 SCORE_FILE = "20250809-costa_rica_cribbage_results.csv"
-SIG_FIG_TOLERANCE = 2  # Controls size of update to be considered significant
+SIG_FIG_TOLERANCE = 4  # Controls size of update to be considered significant
 
 
 # Helper functions
@@ -63,13 +63,32 @@ def update_skills(skills, participation_data, results_data):
     actual_scores = get_actual_scores(results_data)
     player_names = participation_data.columns
     for player in player_names:
-        new_skills[player] = actual_scores[player] / expected_scores[player]
+        new_skills[player] = (
+            skills[player] * actual_scores[player] / expected_scores[player]
+        )
     # find earliest player in alphabetical order
     reference_player = min(player_names)
-    reference_skill = new_skills[reference_player]
-    # normalize scores based on the reference player
-    for player in player_names:
-        new_skills[player] = new_skills[player] / reference_skill
+    new_skills[reference_player] = 1  # Set reference player's skill to 1
+
+    return new_skills
+
+
+def get_skills(participation_data, results_data):
+    """Returns the skills of players based on participation and results data."""
+    # Initialise skills
+    skills = {}
+    for i in participation_data.columns:
+        skills[i] = 1  # Initial skill set to 1 for all players
+    new_skills = update_skills(skills, participation_data, results_data)
+    # Check if the skills have converged
+    while any(
+        abs(new_skills[player] - skills[player]) > 10 ** (-SIG_FIG_TOLERANCE)
+        for player in new_skills
+    ):
+        print(skills)
+        skills = new_skills.copy()
+        new_skills = update_skills(skills, participation_data, results_data)
+
     return new_skills
 
 
@@ -78,12 +97,14 @@ def main():
     """Main function to run the analysis."""
     participation_data = get_data(PARTICIPATION_FILE)
     results_data = get_data(SCORE_FILE)
-    skills = {}
-    for i in participation_data.columns:
-        skills[i] = 1  # Initial skill set to 1 for all players
-    print(calculate_expected_scores(skills, participation_data, results_data))
-    print(get_actual_scores(results_data))
-    print(update_skills(skills, participation_data, results_data))
+    skills = get_skills(participation_data, results_data)
+    print("Final estimated skills:", skills)
+    print(
+        "Expected scores:",
+        calculate_expected_scores(skills, participation_data, results_data),
+    )
+    print("Actual scores:", get_actual_scores(results_data))
+
     return
 
 
