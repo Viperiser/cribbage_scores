@@ -92,6 +92,52 @@ def get_skills(participation_data, results_data):
     return new_skills
 
 
+def generate_matchups(names):
+    """Generates a list of matchups in cribbage from the list of names."""
+    matchnum = 0
+    matchnumbers = []
+    players = []
+    # Four-player matchups
+    print(type(names))
+    for i in range(1, len(names)):
+        opponents = names.copy()
+        opponents.remove(names[0])
+        opponents.remove(names[i])
+        matchnumbers.append(matchnum)
+        players.append(", ".join(sorted((names[0], names[i]))))
+        matchnumbers.append(matchnum)
+        players.append(", ".join(sorted((opponents[0], opponents[1]))))
+        matchnum += 1
+    # Three-player matchups
+    for i in range(len(names)):  # The one who isn't playing
+        opponents = names.copy()
+        opponents.remove(names[i])
+        players.extend(opponents)
+        matchnumbers.extend([matchnum] * 3)
+        matchnum += 1
+    # Two-player matchups
+    for i in range(len(names)):
+        for j in range(i + 1, len(names)):
+            matchnumbers.extend([matchnum] * 2)
+            players.append(names[i])
+            players.append(names[j])
+            matchnum += 1
+    matchlist = pd.DataFrame({"match_number": matchnumbers, "players": players})
+    return matchlist
+
+
+def generate_actuals_table(participation_data, results_data):
+    # Generate list of matchups
+
+    # Find all actuals
+    # Populate
+    return
+
+
+def predict_scores(skills):
+    return
+
+
 # Main function
 def main():
     """Main function to run the analysis."""
@@ -108,4 +154,6 @@ def main():
     return
 
 
-main()
+# main()
+
+print(generate_matchups(["a", "b", "c", "d"]))
