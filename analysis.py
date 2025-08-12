@@ -128,10 +128,37 @@ def generate_matchups(names):
 
 def generate_actuals_table(participation_data, results_data):
     # Generate list of matchups
-
+    names = participation_data.columns.tolist()
+    matchups = generate_matchups(names)
+    games_played = [0] * len(matchups)
+    games_won = [0] * len(matchups)
     # Find all actuals
+    for matchup in range(len(matchups)):
+        for game_number in range(len(participation_data)):
+            if sum(participation_data.iloc[game_number]) == 4:
+                # Find the teams in the 4-player game
+                t1_1 = names[0]
+                result_1 = results_data.iloc[game_number][0]
+                for i in range(1, 4):
+                    if results_data.iloc[game_number][i] == result_1:
+                        t2_1 = names[i]
+                other_team = names.copy()
+                other_team.remove(t1_1)
+                other_team.remove(t2_1)
+                team_1 = ", ".join(sorted((t1_1, t2_1)))
+                team_2 = ", ".join(sorted(other_team))
+                if matchups.iloc[matchup]["players"] == team_1:
+                    games_played[matchup] += 1
+                    games_won[matchup] += result_1
+                if matchups.iloc[matchup]["players"] == team_2:
+                    games_played[matchup] += 1
+                    games_won[matchup] += 1 - result_1
+
+    matchups["games_played"] = games_played
+    matchups["games_won"] = games_won
+
     # Populate
-    return
+    return matchups
 
 
 def predict_scores(skills):
@@ -151,9 +178,11 @@ def main():
     )
     print("Actual scores:", get_actual_scores(results_data))
 
+    print("Actuals table:\n", generate_actuals_table(participation_data, results_data))
+
     return
 
 
-# main()
+main()
 
-print(generate_matchups(["a", "b", "c", "d"]))
+# print(generate_matchups(["a", "b", "c", "d"]))
