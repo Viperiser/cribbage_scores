@@ -190,10 +190,27 @@ def predict_scores(skills, actuals_table):
     number_of_matches = max(actuals_table["match_number"]) + 1
     expected_scores = []
     for matchup in range(number_of_matches):
-        
-        
-        
-    return
+        raw_players = [
+            name
+            for name in actuals_table[actuals_table["match_number"] == matchup][
+                "players"
+            ].tolist()
+        ]
+        players = []
+        for player in raw_players:
+            players.extend(player.split(", "))
+        total_skill = sum(skills[player] for player in players)
+
+        raw_teams = actuals_table[actuals_table["match_number"] == matchup][
+            "players"
+        ].tolist()
+        for player in raw_teams:
+            team = []
+            team.extend(player.split(", "))
+            team_skill = sum(skills[player] for player in team)
+            expected_scores.append(team_skill / total_skill)
+    actuals_table["expected_score"] = expected_scores
+    return actuals_table
 
 
 # Main function
@@ -209,9 +226,9 @@ def main():
     )
     print("Actual scores:", get_actual_scores(results_data))
 
-    print("Actuals table:\n", generate_actuals_table(participation_data, results_data))
-
-    # Get Summary Function = top-level number of games played, games won, est skill
+    actuals_table = generate_actuals_table(participation_data, results_data)
+    predicted_scores = predict_scores(skills, actuals_table)
+    print("Actual and predicted scores:", predicted_scores)
 
     return
 
