@@ -53,6 +53,7 @@ def calculate_expected_scores(skills, participation_data, results_data):
                         if participation_data.iloc[game_number][p] == 1
                     )
                     expected_scores[player] += skills[player] / total_skills
+
     return expected_scores
 
 
@@ -89,6 +90,9 @@ def get_skills(participation_data, results_data):
     ):
         skills = new_skills.copy()
         new_skills = update_skills(skills, participation_data, results_data)
+
+    # Round values to 1 decimal place
+    new_skills = {k: round(v, 1) for k, v in new_skills.items()}
 
     return new_skills
 
@@ -209,6 +213,10 @@ def predict_scores(skills, actuals_table):
             team.extend(player.split(", "))
             team_skill = sum(skills[player] for player in team)
             expected_scores.append(team_skill / total_skill)
+
+    # Round expected scores to 2 decimal places
+    expected_scores = [round(score, 2) for score in expected_scores]
+
     actuals_table["expected_score"] = expected_scores
     return actuals_table
 

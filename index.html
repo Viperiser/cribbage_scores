@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Cribbage stats</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --gap: 16px;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 24px;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+        }
+
+        .note {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: right;
+        }
+
+        th:first-child,
+        td:first-child {
+            text-align: left;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--gap);
+        }
+
+        .card {
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .title {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .small {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 220px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Cribbage stats</h1>
+    <p class="note">Predicted pies show probabilities. Actual pies show game counts. Labels and slices align by index.
+    </p>
+
+    <h2>Summary</h2>
+    <table id="summary">
+        <thead>
+            <tr>
+                <th>Player</th>
+                <th>Played</th>
+                <th>Won</th>
+                <th>Win rate</th>
+                <th>Skill</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2>Matches</h2>
+    <div id="matches" class="grid"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        async function loadData() {
+            // If your JSON is elsewhere, change the path here.
+            const res = await fetch("./20250815-costa_rica_cribbage_analysis.json", { cache: "no-store" });
+            if (!res.ok) throw new Error("Failed to load cribbage data");
+            return res.json();
+        }
+
+        function percent(x) { return (x * 100).toFixed(1) + "%"; }
+        function fmtRate(w, p) { return p ? (w / p).toFixed(3) : "0.000"; }
+
+        function buildSummaryTable(data) {
+            const tbody = document.querySelector("#summary tbody");
+            const players = new Set([
+                ...Object.keys(data.played || {}),
+                ...Object.keys(data.wins || {}),
+                ...Object.keys(data.skills || {})
+            ]);
+
+            const rows = [];
+            players.forEach(name => {
+                const played = data.played?.[name] ?? 0;
+                const won = data.wins?.[name] ?? 0;
+                const skill = data.skills?.[name] ?? null;
+                rows.push({ name, played, won, winrate: played ? won / played : 0, skill });
+            });
+
+            // Stable alphabetical order. Change if you want a different sort.
+            rows.sort((a, b) => a.name.localeCompare(b.name));
+
+            tbody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.name}</td>
+          <td>${r.played}</td>
+          <td>${r.won}</td>
+          <td>${fmtRate(r.won, r.played)}</td>
+          <td>${r.skill ?? ""}</td>
+        </tr>
+      `).join("");
+        }
+
+        function makeDoughnut(canvas, labels, values, tooltipFmt) {
+            return new Chart(canvas.getContext("2d"), {
+                type: "doughnut",
+                data: {
+                    labels,
+                    datasets: [{ data: values }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const label = ctx.label || "";
+                                    const v = ctx.raw;
+                                    return tooltipFmt(label, v, ctx);
+                                }
+                            }
+                        }
+                    },
+                    cutout: "55%"
+                }
+            });
+        }
+
+        function buildMatches(data) {
+            const root = document.getElementById("matches");
+            root.innerHTML = "";
+
+            (data.matches || []).forEach((m, idx) => {
+                const card = document.createElement("div");
+                card.className = "card";
+
+                // Title line like "dad, mum vs bean, boodle"
+                const title = document.createElement("div");
+                title.className = "title";
+                const labels = m.players || m.labels; // tolerate either key
+                title.textContent = labels.join(" vs ");
+                card.appendChild(title);
+
+                const row = document.createElement("div");
+                row.className = "row";
+
+                // Predicted pie
+                const predWrap = document.createElement("div");
+                const predCanvas = document.createElement("canvas");
+                predWrap.appendChild(predCanvas);
+                const predNote = document.createElement("div");
+                predNote.className = "small";
+                predNote.textContent = "Predicted";
+                predWrap.appendChild(predNote);
+                row.appendChild(predWrap);
+
+                // Actual pie or placeholder
+                const actWrap = document.createElement("div");
+                const actCanvas = document.createElement("canvas");
+                actWrap.appendChild(actCanvas);
+                const actNote = document.createElement("div");
+                actNote.className = "small";
+                actNote.textContent = "Actual";
+                actWrap.appendChild(actNote);
+                row.appendChild(actWrap);
+
+                card.appendChild(row);
+                root.appendChild(card);
+
+                // Normalise predicted defensively, just in case
+                const probs = (m.predicted_win_rates || m.predicted || []).slice();
+                const s = probs.reduce((a, b) => a + b, 0);
+                const norm = s ? probs.map(x => x / s) : probs;
+
+                makeDoughnut(predCanvas, labels, norm, (label, v) => `${label}: ${percent(v)}`);
+
+                const actual = m.actual_wins ?? m.actual;
+                const hasActual = Array.isArray(actual) && actual.length === labels.length && actual.some(v => v !== null);
+
+                if (hasActual) {
+                    makeDoughnut(actCanvas, labels, actual.map(v => v ?? 0), (label, v, ctx) => {
+                        const total = actual.reduce((a, b) => a + (b ?? 0), 0);
+                        const pct = total ? (v / total) : 0;
+                        return `${label}: ${v} (${percent(pct)})`;
+                    });
+                } else {
+                    // Replace canvas with a simple message
+                    actCanvas.replaceWith(document.createTextNode("No actuals yet"));
+                }
+            });
+        }
+
+        (async function main() {
+            const data = await loadData();
+            buildSummaryTable(data);
+            buildMatches(data);
+        })().catch(err => {
+            document.body.insertAdjacentHTML("beforeend", `<p style="color:#b00">Error: ${err.message}</p>`);
+            console.error(err);
+        });
+    </script>
+</body>
+
+</html>

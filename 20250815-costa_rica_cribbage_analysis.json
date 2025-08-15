@@ -1,1 +1,189 @@
-{"played": {"dad": 8, "mum": 13, "bean": 12, "boodle": 13}, "wins": {"dad": 5, "mum": 6, "bean": 6, "boodle": 4}, "skills": {"dad": 1.825395872628103, "mum": 0.7502863766126352, "bean": 1, "boodle": 0.2245072472096716}, "matches": [{"players": ["dad, mum", "bean, boodle"], "actual_wins": [2, 0], "predicted_win_rates": [0.6777773191696282, 0.3222226808303718]}, {"players": ["bean, dad", "boodle, mum"], "actual_wins": [1, 1], "predicted_win_rates": [0.7434881537531698, 0.25651184624683027]}, {"players": ["boodle, dad", "bean, mum"], "actual_wins": [2, 2], "predicted_win_rates": [0.5394212898468613, 0.46057871015313867]}, {"players": ["mum", "bean", "boodle"], "actual_wins": [0, 3, 1], "predicted_win_rates": [0.3799315369270943, 0.5063820279429769, 0.11368643512992875]}, {"players": ["dad", "bean", "boodle"], "actual_wins": null, "predicted_win_rates": [0.5985094610891104, 0.32787926721199934, 0.0736112716988903]}, {"players": ["dad", "mum", "boodle"], "actual_wins": null, "predicted_win_rates": [0.651882979684775, 0.2679412866749615, 0.0801757336402635]}, {"players": ["dad", "mum", "bean"], "actual_wins": null, "predicted_win_rates": [0.5105028202703716, 0.20983027134806267, 0.2796669083815656]}, {"players": ["dad", "mum"], "actual_wins": null, "predicted_win_rates": [0.7087038291179724, 0.2912961708820276]}, {"players": ["dad", "bean"], "actual_wins": null, "predicted_win_rates": [0.6460672963786033, 0.3539327036213967]}, {"players": ["dad", "boodle"], "actual_wins": null, "predicted_win_rates": [0.8904790938474016, 0.10952090615259842]}, {"players": ["mum", "bean"], "actual_wins": null, "predicted_win_rates": [0.42866492400213935, 0.5713350759978606]}, {"players": ["mum", "boodle"], "actual_wins": [1, 0], "predicted_win_rates": [0.7696874069309705, 0.23031259306902954]}, {"players": ["bean", "boodle"], "actual_wins": null, "predicted_win_rates": [0.8166550277907588, 0.18334497220924112]}]}
+{
+    "played": {
+        "dad": 8,
+        "mum": 13,
+        "bean": 12,
+        "boodle": 13
+    },
+    "wins": {
+        "dad": 5,
+        "mum": 6,
+        "bean": 6,
+        "boodle": 4
+    },
+    "skills": {
+        "dad": 1.8,
+        "mum": 0.8,
+        "bean": 1,
+        "boodle": 0.2
+    },
+    "matches": [
+        {
+            "players": [
+                "dad, mum",
+                "bean, boodle"
+            ],
+            "actual_wins": [
+                2,
+                0
+            ],
+            "predicted_win_rates": [
+                0.68,
+                0.32
+            ]
+        },
+        {
+            "players": [
+                "bean, dad",
+                "boodle, mum"
+            ],
+            "actual_wins": [
+                1,
+                1
+            ],
+            "predicted_win_rates": [
+                0.74,
+                0.26
+            ]
+        },
+        {
+            "players": [
+                "boodle, dad",
+                "bean, mum"
+            ],
+            "actual_wins": [
+                2,
+                2
+            ],
+            "predicted_win_rates": [
+                0.53,
+                0.47
+            ]
+        },
+        {
+            "players": [
+                "mum",
+                "bean",
+                "boodle"
+            ],
+            "actual_wins": [
+                0,
+                3,
+                1
+            ],
+            "predicted_win_rates": [
+                0.4,
+                0.5,
+                0.1
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "bean",
+                "boodle"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.6,
+                0.33,
+                0.07
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "mum",
+                "boodle"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.64,
+                0.29,
+                0.07
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "mum",
+                "bean"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.5,
+                0.22,
+                0.28
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "mum"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.69,
+                0.31
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "bean"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.64,
+                0.36
+            ]
+        },
+        {
+            "players": [
+                "dad",
+                "boodle"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.9,
+                0.1
+            ]
+        },
+        {
+            "players": [
+                "mum",
+                "bean"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.44,
+                0.56
+            ]
+        },
+        {
+            "players": [
+                "mum",
+                "boodle"
+            ],
+            "actual_wins": [
+                1,
+                0
+            ],
+            "predicted_win_rates": [
+                0.8,
+                0.2
+            ]
+        },
+        {
+            "players": [
+                "bean",
+                "boodle"
+            ],
+            "actual_wins": null,
+            "predicted_win_rates": [
+                0.83,
+                0.17
+            ]
+        }
+    ]
+}
