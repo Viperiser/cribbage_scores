@@ -2,10 +2,12 @@
 
 # Imports
 import pandas as pd
+import json
 
 # Global variables
 PARTICIPATION_FILE = "20250809-costa_rica_cribbage_participation.csv"
 SCORE_FILE = "20250809-costa_rica_cribbage_results.csv"
+OUTPUT_NAME = "20250815-costa_rica_cribbage_analysis"
 SIG_FIG_TOLERANCE = 4  # Controls size of update to be considered significant
 
 
@@ -85,7 +87,6 @@ def get_skills(participation_data, results_data):
         abs(new_skills[player] - skills[player]) > 10 ** (-SIG_FIG_TOLERANCE)
         for player in new_skills
     ):
-        print(skills)
         skills = new_skills.copy()
         new_skills = update_skills(skills, participation_data, results_data)
 
@@ -98,7 +99,6 @@ def generate_matchups(names):
     matchnumbers = []
     players = []
     # Four-player matchups
-    print(type(names))
     for i in range(1, len(names)):
         opponents = names.copy()
         opponents.remove(names[0])
@@ -213,6 +213,28 @@ def predict_scores(skills, actuals_table):
     return actuals_table
 
 
+def transform_data(final_actuals_table):
+    # Turn it into a json of matchups
+    number_of_entries = max(final_actuals_table["match_number"]) + 1
+    entries = []
+    for entry in range(number_of_entries):
+        entry_data = final_actuals_table[final_actuals_table["match_number"] == entry]
+        players = entry_data["players"].tolist()
+        games_played = entry_data["games_played"].tolist()
+        games_won = entry_data["games_won"].tolist()
+        if sum(games_played) == 0:
+            games_won = None
+        expected_scores = entry_data["expected_score"].tolist()
+        entries.append(
+            {
+                "players": players,
+                "actual_wins": games_won,
+                "predicted_win_rates": expected_scores,
+            }
+        )
+    return entries
+
+
 # Main function
 def main():
     """Main function to run the analysis."""
@@ -224,15 +246,28 @@ def main():
         "Expected scores:",
         calculate_expected_scores(skills, participation_data, results_data),
     )
-    print("Actual scores:", get_actual_scores(results_data))
+    played = get_actual_scores(participation_data)
+    print("Games played:", played)
+    scores = get_actual_scores(results_data)
+    print("Actual scores:", scores)
 
     actuals_table = generate_actuals_table(participation_data, results_data)
     predicted_scores = predict_scores(skills, actuals_table)
     print("Actual and predicted scores:", predicted_scores)
 
+    transformed_data = transform_data(predicted_scores)
+    print("Transformed data:", transformed_data)
+
+    final_data = {}
+    final_data["played"] = played
+    final_data["wins"] = scores
+    final_data["skills"] = skills
+    final_data["matches"] = transformed_data
+
+    with open(f"{OUTPUT_NAME}.json", "w") as f:
+        json.dump(final_data, f)
+
     return
 
 
 main()
-
-# print(generate_matchups(["a", "b", "c", "d"]))
