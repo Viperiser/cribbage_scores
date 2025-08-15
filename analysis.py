@@ -134,10 +134,12 @@ def generate_actuals_table(participation_data, results_data):
     games_won = [0] * len(matchups)
     # Find all actuals
     for matchup in range(len(matchups)):
+        # For each matchup, go through every game to find games that correspond to it
         for game_number in range(len(participation_data)):
             if sum(participation_data.iloc[game_number]) == 4:
-                # Find the teams in the 4-player game
+                # This game is 4 player, so needs handling differently
                 t1_1 = names[0]
+                t2_1 = names[1]  # Placeholder that will be replaced
                 result_1 = results_data.iloc[game_number][0]
                 for i in range(1, 4):
                     if results_data.iloc[game_number][i] == result_1:
@@ -154,14 +156,43 @@ def generate_actuals_table(participation_data, results_data):
                     games_played[matchup] += 1
                     games_won[matchup] += 1 - result_1
 
+            else:  # This game is 2 or 3 players
+                # Find the players in the matchup
+                matchup_number = matchups.iloc[matchup]["match_number"]
+                players = set(
+                    matchups[matchups["match_number"] == matchup_number][
+                        "players"
+                    ].tolist()
+                )
+                # Find the players in the game we are checking
+                game_players = set(
+                    [
+                        name
+                        for name in names
+                        if participation_data.at[game_number, name] == 1
+                    ]
+                )
+                # Find the winner in the game we are checking
+                winner = [
+                    name for name in names if results_data.at[game_number, name] == 1
+                ][0]
+                if players == game_players:
+                    games_played[matchup] += 1
+                    if matchups.iloc[matchup]["players"] == winner:
+                        games_won[matchup] += 1
+
     matchups["games_played"] = games_played
     matchups["games_won"] = games_won
-
-    # Populate
     return matchups
 
 
-def predict_scores(skills):
+def predict_scores(skills, actuals_table):
+    number_of_matches = max(actuals_table["match_number"]) + 1
+    expected_scores = []
+    for matchup in range(number_of_matches):
+        
+        
+        
     return
 
 
@@ -179,6 +210,8 @@ def main():
     print("Actual scores:", get_actual_scores(results_data))
 
     print("Actuals table:\n", generate_actuals_table(participation_data, results_data))
+
+    # Get Summary Function = top-level number of games played, games won, est skill
 
     return
 
