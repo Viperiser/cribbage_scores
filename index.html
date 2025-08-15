@@ -8,6 +8,8 @@
     <style>
         :root {
             --gap: 16px;
+            --border: #ddd;
+            --muted: #666;
         }
 
         body {
@@ -19,8 +21,12 @@
             margin: 0 0 8px;
         }
 
+        h2 {
+            margin: 24px 0 8px;
+        }
+
         .note {
-            color: #666;
+            color: var(--muted);
             font-size: 13px;
             margin-bottom: 16px;
         }
@@ -28,12 +34,12 @@
         table {
             border-collapse: collapse;
             width: 100%;
-            margin-bottom: 24px;
+            margin-bottom: 8px;
         }
 
         th,
         td {
-            border: 1px solid #ddd;
+            border: 1px solid var(--border);
             padding: 8px 10px;
             text-align: right;
         }
@@ -43,39 +49,61 @@
             text-align: left;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        /* One match per row */
+        #matches {
+            display: flex;
+            flex-direction: column;
             gap: var(--gap);
         }
 
-        .card {
-            border: 1px solid #ddd;
+        .match-card {
+            border: 1px solid var(--border);
             border-radius: 12px;
             padding: 12px;
+            width: 100%;
         }
 
-        .title {
+        .match-title {
             font-weight: 600;
             margin-bottom: 8px;
         }
 
-        .row {
+        .charts {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: repeat(2, minmax(240px, 1fr));
+            gap: var(--gap);
+            align-items: start;
         }
 
-        .small {
-            font-size: 12px;
-            color: #666;
+        .chartcol {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-caption {
             text-align: center;
-            margin-top: 4px;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 6px;
         }
 
-        canvas {
-            width: 100%;
-            height: 220px;
+        .chartbox {
+            position: relative;
+            height: 260px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 8px;
+        }
+
+        .chartbox canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+        }
+
+        .error {
+            color: #b00;
+            margin-top: 16px;
         }
     </style>
 </head>
@@ -93,26 +121,103 @@
                 <th>Played</th>
                 <th>Won</th>
                 <th>Win rate</th>
-                <th>Skill</th>
+                <th>Estimated Skill</th>
             </tr>
         </thead>
         <tbody></tbody>
     </table>
 
     <h2>Matches</h2>
-    <div id="matches" class="grid"></div>
+    <div id="matches"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
+        // ---- Config: filename at repo root ----
+        const DATA_PATH = "./20250815-costa_rica_cribbage_analysis.json";
+
+        // ---- Utilities ----
+        const percent = x => (x * 100).toFixed(1) + "%";
+        const fmtRate = (w, p) => p ? (w / p).toFixed(3) : "0.000";
+
         async function loadData() {
-            // If your JSON is elsewhere, change the path here.
-            const res = await fetch("./20250815-costa_rica_cribbage_analysis.json", { cache: "no-store" });
-            if (!res.ok) throw new Error("Failed to load cribbage data");
+            const res = await fetch(DATA_PATH, { cache: "no-store" });
+            if (!res.ok) throw new Error(`Failed to load ${DATA_PATH} (${res.status})`);
             return res.json();
         }
 
-        function percent(x) { return (x * 100).toFixed(1) + "%"; }
-        function fmtRate(w, p) { return p ? (w / p).toFixed(3) : "0.000"; }
+        // Simple per-chart segment label plugin
+        const segmentLabelPlugin = {
+            id: "segmentLabelPlugin",
+            afterDatasetsDraw(chart, args, opts) {
+                const { ctx } = chart;
+                const ds = chart.data.datasets[0];
+                if (!ds) return;
+                const data = ds.data || [];
+                const total = data.reduce((a, b) => a + (b ?? 0), 0);
+
+                const meta = chart.getDatasetMeta(0);
+                meta.data.forEach((arc, i) => {
+                    const v = data[i];
+                    if (v == null) return;
+
+                    // Optional thresholds to avoid clutter
+                    const frac = total ? v / total : 0;
+                    const show = opts?.minFraction ? frac >= opts.minFraction : true;
+                    if (!show || v === 0) return;
+
+                    // Position text at mid-radius, mid-angle
+                    const props = arc.getProps(["x", "y", "startAngle", "endAngle", "innerRadius", "outerRadius"], true);
+                    const angle = (props.startAngle + props.endAngle) / 2;
+                    const r = (props.innerRadius + props.outerRadius) / 2;
+                    const x = props.x + Math.cos(angle) * r;
+                    const y = props.y + Math.sin(angle) * r;
+
+                    const label = opts?.formatter ? opts.formatter(v, frac, i, chart) : String(v);
+
+                    ctx.save();
+                    ctx.fillStyle = "#000";
+                    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(label, x, y);
+                    ctx.restore();
+                });
+            }
+        };
+
+        function makeDoughnut(canvas, labels, values, tooltipFmt, isPredicted = false) {
+            // For predicted: formatter outputs percentages.
+            // For actual: outputs raw counts.
+            const pluginOpts = isPredicted
+                ? { formatter: (v, frac) => percent(frac), minFraction: 0.06 }   // hide tiny slices <6%
+                : { formatter: (v) => String(v), minFraction: 0.08 };    // hide tiny slices <8%
+
+            return new Chart(canvas.getContext("2d"), {
+                type: "doughnut",
+                data: { labels, datasets: [{ data: values }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const label = ctx.label || "";
+                                    return tooltipFmt(label, ctx.raw, ctx);
+                                }
+                            }
+                        }
+                    },
+                    cutout: "55%"
+                },
+                plugins: [{ ...segmentLabelPlugin, ...{ afterDatasetsDraw: segmentLabelPlugin.afterDatasetsDraw } }],
+                // Pass options for the plugin via chart.$plugins for simplicity
+                // Chart.js doesn't natively pass per-instance options to anonymous plugins,
+                // so we attach them to the chart object and read them inside the plugin if needed.
+            });
+        }
 
         function buildSummaryTable(data) {
             const tbody = document.querySelector("#summary tbody");
@@ -126,11 +231,10 @@
             players.forEach(name => {
                 const played = data.played?.[name] ?? 0;
                 const won = data.wins?.[name] ?? 0;
-                const skill = data.skills?.[name] ?? null;
+                const skill = data.skills?.[name];
                 rows.push({ name, played, won, winrate: played ? won / played : 0, skill });
             });
 
-            // Stable alphabetical order. Change if you want a different sort.
             rows.sort((a, b) => a.name.localeCompare(b.name));
 
             tbody.innerHTML = rows.map(r => `
@@ -144,93 +248,86 @@
       `).join("");
         }
 
-        function makeDoughnut(canvas, labels, values, tooltipFmt) {
-            return new Chart(canvas.getContext("2d"), {
-                type: "doughnut",
-                data: {
-                    labels,
-                    datasets: [{ data: values }]
-                },
-                options: {
-                    responsive: true,
-                    animation: false,
-                    plugins: {
-                        legend: { position: "bottom" },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => {
-                                    const label = ctx.label || "";
-                                    const v = ctx.raw;
-                                    return tooltipFmt(label, v, ctx);
-                                }
-                            }
-                        }
-                    },
-                    cutout: "55%"
-                }
-            });
-        }
-
         function buildMatches(data) {
             const root = document.getElementById("matches");
             root.innerHTML = "";
 
-            (data.matches || []).forEach((m, idx) => {
-                const card = document.createElement("div");
-                card.className = "card";
+            (data.matches || []).forEach(m => {
+                const labels = m.players || m.labels;
 
-                // Title line like "dad, mum vs bean, boodle"
+                const card = document.createElement("div");
+                card.className = "match-card";
+
                 const title = document.createElement("div");
-                title.className = "title";
-                const labels = m.players || m.labels; // tolerate either key
+                title.className = "match-title";
                 title.textContent = labels.join(" vs ");
                 card.appendChild(title);
 
-                const row = document.createElement("div");
-                row.className = "row";
+                const charts = document.createElement("div");
+                charts.className = "charts";
 
-                // Predicted pie
-                const predWrap = document.createElement("div");
+                // Column: Predicted
+                const predCol = document.createElement("div");
+                predCol.className = "chartcol";
+                const predCaption = document.createElement("div");
+                predCaption.className = "chart-caption";
+                predCaption.textContent = "Predicted";
+                const predBox = document.createElement("div");
+                predBox.className = "chartbox";
                 const predCanvas = document.createElement("canvas");
-                predWrap.appendChild(predCanvas);
-                const predNote = document.createElement("div");
-                predNote.className = "small";
-                predNote.textContent = "Predicted";
-                predWrap.appendChild(predNote);
-                row.appendChild(predWrap);
+                predBox.appendChild(predCanvas);
+                predCol.appendChild(predCaption);
+                predCol.appendChild(predBox);
+                charts.appendChild(predCol);
 
-                // Actual pie or placeholder
-                const actWrap = document.createElement("div");
+                // Column: Actual
+                const actCol = document.createElement("div");
+                actCol.className = "chartcol";
+                const actCaption = document.createElement("div");
+                actCaption.className = "chart-caption";
+                actCaption.textContent = "Actual";
+                const actBox = document.createElement("div");
+                actBox.className = "chartbox";
                 const actCanvas = document.createElement("canvas");
-                actWrap.appendChild(actCanvas);
-                const actNote = document.createElement("div");
-                actNote.className = "small";
-                actNote.textContent = "Actual";
-                actWrap.appendChild(actNote);
-                row.appendChild(actWrap);
+                actBox.appendChild(actCanvas);
+                actCol.appendChild(actCaption);
+                actCol.appendChild(actBox);
+                charts.appendChild(actCol);
 
-                card.appendChild(row);
+                card.appendChild(charts);
                 root.appendChild(card);
 
-                // Normalise predicted defensively, just in case
+                // Predicted data, normalised defensively
                 const probs = (m.predicted_win_rates || m.predicted || []).slice();
                 const s = probs.reduce((a, b) => a + b, 0);
                 const norm = s ? probs.map(x => x / s) : probs;
+                const predChart = makeDoughnut(
+                    predCanvas, labels, norm,
+                    (label, v) => `${label}: ${percent(v)}`,
+                    true
+                );
+                // Attach plugin opts
+                predChart.$segmentLabelOpts = { isPredicted: true };
 
-                makeDoughnut(predCanvas, labels, norm, (label, v) => `${label}: ${percent(v)}`);
-
+                // Actual
                 const actual = m.actual_wins ?? m.actual;
                 const hasActual = Array.isArray(actual) && actual.length === labels.length && actual.some(v => v !== null);
 
                 if (hasActual) {
-                    makeDoughnut(actCanvas, labels, actual.map(v => v ?? 0), (label, v, ctx) => {
-                        const total = actual.reduce((a, b) => a + (b ?? 0), 0);
-                        const pct = total ? (v / total) : 0;
-                        return `${label}: ${v} (${percent(pct)})`;
-                    });
+                    const actChart = makeDoughnut(
+                        actCanvas,
+                        labels,
+                        actual.map(v => v ?? 0),
+                        (label, v, ctx) => {
+                            const total = actual.reduce((a, b) => a + (b ?? 0), 0);
+                            const pct = total ? (v / total) : 0;
+                            return `${label}: ${v} (${percent(pct)})`;
+                        },
+                        false
+                    );
+                    actChart.$segmentLabelOpts = { isPredicted: false };
                 } else {
-                    // Replace canvas with a simple message
-                    actCanvas.replaceWith(document.createTextNode("No actuals yet"));
+                    actBox.replaceChild(document.createTextNode("No actuals yet"), actCanvas);
                 }
             });
         }
@@ -240,7 +337,7 @@
             buildSummaryTable(data);
             buildMatches(data);
         })().catch(err => {
-            document.body.insertAdjacentHTML("beforeend", `<p style="color:#b00">Error: ${err.message}</p>`);
+            document.body.insertAdjacentHTML("beforeend", `<p class="error">Error: ${err.message}</p>`);
             console.error(err);
         });
     </script>
